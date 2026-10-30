@@ -1,0 +1,144 @@
+/* GamedevX classic — faithful recreation of the original gamedevx.com (2544-2550) */
+html,body{margin:0;padding:0;background:#fff;color:#000;font:13px/1.45 Tahoma,"MS Sans Serif","Sarabun","Leelawadee UI","Noto Sans Thai",sans-serif}
+a{color:#1b3fa3;text-decoration:none}
+a:hover{text-decoration:underline;color:#c00}
+img{border:0}
+
+/* ---- header ---- */
+#cx-head{background:#6766cc;height:130px;position:relative;overflow:hidden;border-bottom:1px solid #4d4bb0}
+#cx-logo{position:absolute;left:38px;top:0;height:130px;display:flex;align-items:center;text-decoration:none!important}
+#cx-logo img{max-height:130px;display:block}
+.cx-wordmark{display:flex;align-items:center;font-family:"Arial Rounded MT Bold","Trebuchet MS",Arial,sans-serif;font-weight:bold;font-size:46px;color:#fff;letter-spacing:-1px}
+.cx-wordmark .g{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:#fff;color:#6766cc;font-size:34px;margin-right:2px}
+.cx-wordmark .x{font-size:66px;line-height:40px;display:inline-block;transform:rotate(-8deg);margin-left:4px;position:relative;top:-6px}
+.cx-wordmark .x::before{content:"";position:absolute;width:13px;height:13px;border-radius:50%;background:#fff;left:24px;top:-13px}
+#cx-head-art{position:absolute;left:50%;top:0;height:130px;transform:translateX(-30%);display:flex;align-items:flex-end}
+#cx-head-art img{max-height:130px;display:block}
+#cx-tag{position:absolute;left:330px;bottom:14px;color:#dcdbff;font-size:12px}
+
+/* ---- 3 column frame ---- */
+#cx-frame{display:grid;grid-template-columns:152px minmax(0,1fr) 196px;min-height:600px}
+#cx-left{background:#ecf0f9;border-right:1px dashed #9aa3b5;padding:4px 3px}
+#cx-center{background:#d5eaff;padding:0 4px 20px;min-width:0}
+#cx-right{background:#fff;border-left:1px dashed #9aa3b5;padding:4px 3px}
+.cx-box{background:#fff;border:1px dashed #8d96a8;margin-bottom:6px}
+.cx-box-h{background:#0083be;color:#fff;font-weight:bold;text-align:center;font-size:12px;padding:2px 3px;line-height:1.35}
+.cx-box-b{padding:4px 5px 6px;font-size:12px}
+.cx-box-b label{display:block;color:#1b56a8;font-size:12px;margin:1px 0 0}
+.cx-box-b input[type=text],.cx-box-b input[type=password],.cx-box-b input[type=email]{width:118px;box-sizing:border-box;font:12px Tahoma,"Sarabun",sans-serif;border:2px inset #e0e0e0;padding:1px 2px;margin:0 0 2px}
+.cx-box-b .rm{display:flex;align-items:center;gap:4px;color:#1b56a8;margin:3px 0}
+.cx-menu{margin:4px 0 0;padding:0;list-style:none;line-height:1.75}
+.cx-menu li::before{content:"» ";color:#0083be}
+.cx-section-t{text-align:center;color:#1b56a8;font-size:12px;margin:8px 0 3px}
+.cx-ad{display:block;text-align:center;margin:0 auto 5px;font-size:11px;color:#1b56a8}
+.cx-ad img{width:125px;display:block;margin:0 auto;border:1px solid #c5cfdf}
+.cx-ad span{display:block;margin-top:2px}
+
+/* classic gray button (Windows XP era) */
+.cx-btn{font:12px Tahoma,"Sarabun",sans-serif;padding:1px 9px;background:#f4f3ee;border:1px solid #7a7a7a;border-radius:3px;color:#000;cursor:pointer;box-shadow:inset -1px -1px 0 #c9c7ba,inset 1px 1px 0 #fff}
+.cx-btn:hover{background:#fffbe6}
+/* blue flat board buttons: Show All / Post Topic */
+.cx-bb{font:12px Tahoma,"Sarabun",sans-serif;letter-spacing:1px;color:#fff;background:#98b2d7;border:1px solid #c6d5ea;outline:1px solid #8aa6cf;padding:2px 18px;cursor:pointer}
+.cx-bb:hover{background:#7f9fcf}
+.cx-bb.on{background:#6c8cc0}
+
+/* ---- center ---- */
+#cx-banner{display:flex;justify-content:center;padding:0}
+#cx-banner .slide{display:none}
+#cx-banner .slide.on{display:block}
+#cx-banner img{display:block;max-width:100%}
+.cx-promo{width:668px;max-width:100%;background:#6766cc;padding:28px 34px 6px;box-sizing:border-box}
+.cx-promo-in{background:#fff;position:relative;min-height:240px;display:flex;align-items:center;padding:20px 26px 56px 200px;box-sizing:border-box}
+.cx-promo-in::before{content:"";position:absolute;left:0;top:0;width:200px;height:16px;background:#6766cc;clip-path:polygon(0 0,100% 0,88% 100%,0 100%)}
+.cx-mascot{position:absolute;left:18px;top:30px;width:150px;height:150px;border-radius:46% 54% 50% 50%;background:radial-gradient(circle at 38% 32%,#bfe0ff,#6aa7e8 55%,#3d78c4);box-shadow:inset -10px -12px 0 rgba(0,0,40,.12)}
+.cx-mascot::before,.cx-mascot::after{content:"";position:absolute;top:44px;width:22px;height:30px;border-radius:50%;background:#fff;box-shadow:inset 6px 4px 0 #222}
+.cx-mascot::before{left:44px}.cx-mascot::after{left:84px}
+.cx-mascot b{position:absolute;left:40px;top:86px;width:70px;height:16px;border-radius:0 0 40px 40px;border-bottom:4px solid #2a4a80}
+.cx-mascot i{position:absolute;left:28px;top:80px;width:22px;height:12px;border-radius:50%;background:#ff9fc8;opacity:.7}
+.cx-mascot i+i{left:104px}
+.cx-promo h2{font:bold 22px/1.6 Tahoma,"Sarabun",sans-serif;margin:0;color:#000;text-align:center;width:100%}
+.cx-promo .wm{position:absolute;right:16px;top:8px;color:#6766cc;font:bold 15px "Trebuchet MS",Arial}
+.cx-promo .el{position:absolute;left:180px;right:20px;bottom:6px;display:flex;align-items:center;gap:8px;font:bold 30px "Arial Black",Arial;letter-spacing:2px;color:#111}
+.cx-promo .el small{display:block;font:12px Tahoma,"Sarabun",sans-serif;letter-spacing:0;color:#222}
+.cx-promo .el .gg{width:40px;height:40px;border-radius:50%;border:7px solid #111;border-right-color:transparent;box-sizing:border-box}
+.cx-tools{display:flex;justify-content:flex-end;align-items:center;gap:4px;flex-wrap:wrap;margin:10px 0 6px}
+.cx-tools input{width:128px;font:12px Tahoma,"Sarabun",sans-serif;border:2px inset #e0e0e0;padding:1px 3px}
+.cx-tools select{font:12px Tahoma,"Sarabun",sans-serif;max-width:140px}
+table.cx-board{width:100%;border-collapse:collapse;font-size:12px}
+.cx-board th{color:#0e4f86;font-weight:bold;text-align:center;padding:3px 4px;border-bottom:1px dashed #7a8db3;white-space:nowrap}
+.cx-board td{padding:2px 4px;border-bottom:1px dashed #7a8db3;vertical-align:middle}
+.cx-board tr.pin td{background:#feebe6}
+.cx-board tr:hover td{background:#e9f3ff}
+.cx-board tr.pin:hover td{background:#fde0d8}
+.cx-board td.n{color:#1a5594;font-weight:bold;font-size:13px;text-align:center;width:46px}
+.cx-board td.t a{color:#2340a0}
+.cx-board td.t a:visited{color:#6a3aa0}
+.cx-board td.u{color:#0d6b8c;font-weight:bold;text-align:center;white-space:nowrap}
+.cx-board td.u.g{color:#a9b4c5}
+.cx-board td.d{text-align:center;white-space:nowrap}
+.cx-board td.c{text-align:center;white-space:nowrap;color:#c00}
+.cx-board tr.hid td{opacity:.55;text-decoration:line-through}
+.cx-cat{color:#5b6f8f;font-size:11px}
+.ic-photo{display:inline-block;font:italic bold 9px Arial;color:#fff;background:linear-gradient(#8aa8d8,#4d6fae);border:1px solid #3a5793;padding:0 3px;border-radius:2px;vertical-align:2px;margin-left:3px;letter-spacing:.5px}
+.ic-new{display:inline-block;font:italic bold 9px "Arial Black",Arial;color:#fff;background:#111;padding:0 3px;vertical-align:2px;margin-left:3px}
+.ic-game{display:inline-block;font:bold 9px Tahoma,"Sarabun",sans-serif;color:#fff;background:#6766cc;padding:0 4px;border-radius:2px;vertical-align:1px;margin-right:3px}
+.ic-lock{color:#888;font-size:11px;margin-left:3px}
+.cx-pager{text-align:center;margin:8px 0;font-size:12px}
+.cx-pager a,.cx-pager b{margin:0 3px}
+.cx-pager b{color:#c00}
+
+/* ---- right column (history) ---- */
+.cx-hist{padding:4px 2px 8px;font-size:11px;color:#2557a7;border-bottom:1px dotted #c7d3e6;line-height:1.5}
+.cx-hist:last-child{border-bottom:0}
+.cx-hist img{width:168px;display:block;margin:3px auto 4px;border:1px solid #c5cfdf}
+.cx-hist b{color:#1b3d8a}
+
+/* ---- forms / topic ---- */
+.cx-panel{background:#fff;border:1px solid #7a8db3;margin:10px 0}
+.cx-panel-h{background:#0083be;color:#fff;font-weight:bold;padding:3px 8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px}
+.cx-panel-b{padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+.cx-panel-f{padding:3px 8px;background:#eef4fc;border-top:1px dashed #7a8db3;font-size:11px;color:#444;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cx-panel.reply .cx-panel-h{background:#98b2d7}
+.cx-panel.hid{opacity:.6}
+.cx-post-img{display:block;max-width:100%;max-height:520px;margin:8px 0;border:1px solid #c5cfdf}
+.cx-form{padding:8px 10px}
+.cx-form table{border-collapse:collapse;width:100%}
+.cx-form td{padding:3px 4px;vertical-align:top;font-size:12px}
+.cx-form td.l{width:110px;text-align:right;color:#0e4f86;font-weight:bold;padding-top:5px}
+.cx-form input[type=text],.cx-form select,.cx-form textarea{font:12px Tahoma,"Sarabun",sans-serif;border:2px inset #e0e0e0;padding:2px 3px;width:100%;max-width:520px;box-sizing:border-box}
+.cx-form textarea{height:150px}
+.cx-hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
+.cx-crumb{font-size:12px;margin:8px 0}
+.cx-player{width:100%;aspect-ratio:16/9;background:#000}
+.cx-note{background:#fffbe0;border:1px solid #e3cf6f;padding:5px 8px;font-size:12px;margin:8px 0}
+#cx-foot{background:#6766cc;color:#e6e5ff;font-size:11px;text-align:center;padding:6px}
+#cx-foot a{color:#fff}
+
+/* toast (shared) */
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:#333399;color:#fff;padding:8px 16px;border:1px solid #000;font-size:12px}
+.toast.err{background:#a3243f}
+.modal-bg{position:fixed;inset:0;background:rgba(20,20,60,.45);z-index:90;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#fff;border:1px solid #7a8db3;padding:14px;width:min(520px,100%)}
+
+@media (max-width:900px){
+  #cx-frame{grid-template-columns:1fr}
+  #cx-center{order:1;padding-bottom:10px}
+  #cx-left{order:2;border-right:0;border-top:1px dashed #9aa3b5}
+  #cx-right{order:3;border-left:0;border-top:1px dashed #9aa3b5}
+  #cx-head{height:96px}
+  #cx-logo{left:10px;height:96px}
+  .cx-wordmark{font-size:34px}
+  .cx-wordmark .x{font-size:48px}
+  .cx-wordmark .g{width:34px;height:34px;font-size:26px}
+  #cx-head-art,#cx-tag{display:none}
+  .cx-board th:nth-child(4),.cx-board td:nth-child(4),.cx-board th:nth-child(5),.cx-board td:nth-child(5){display:none}
+  .cx-promo{padding:14px 10px 6px}
+  .cx-promo-in{padding:30px 12px 12px;flex-direction:column;min-height:0}
+  .cx-mascot{display:none}
+  .cx-promo-in::before{width:110px;height:12px}
+  .cx-promo h2{font-size:18px}
+  .cx-promo .el{position:static;margin-top:10px;font-size:20px;justify-content:center}
+  .cx-promo .el .gg{width:28px;height:28px;border-width:5px}
+  .cx-left-ads{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+}

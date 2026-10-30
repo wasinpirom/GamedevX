@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ทดลองเล่น — GamedevX</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/player.css">
+<style>html,body{margin:0;height:100%;background:#000}#game{position:fixed;inset:0}
+#back{position:fixed;left:10px;top:10px;z-index:5;color:#fff;background:rgba(0,0,0,.5);padding:6px 12px;border-radius:20px;font:14px sans-serif;text-decoration:none}</style>
+</head>
+<body>
+<a id="back" href="#">← กลับสตูดิโอ</a>
+<div id="game"></div>
+<script src="/static/js/player.js"></script>
+<script>
+(async function () {
+  var pid = location.pathname.split("/").pop();
+  document.getElementById("back").href = "/project/" + pid;
+  var r = await fetch("/api/projects/" + pid + "/gamedata", { credentials: "same-origin" });
+  var data = await r.json();
+  if (!r.ok) { document.getElementById("game").innerHTML = '<p style="color:#fff;padding:60px">' + (data.detail || "error") + "</p>"; return; }
+  var start = new URLSearchParams(location.search).get("scene");
+  var p = GDXPlayer.mount(document.getElementById("game"), data, { startScene: start });
+  document.getElementById("game").focus();
+})();
+</script>
+</body>
+</html>

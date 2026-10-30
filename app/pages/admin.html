@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — GamedevX</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main class="container" style="padding-top:20px">
+  <h1>หลังบ้าน GamedevX</h1>
+  <div class="grid g3" id="stats"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="view"></div>
+</main>
+<script src="/static/js/common.js"></script>
+<script>
+(async function () {
+  var api = GDX.api, esc = GDX.esc, toast = GDX.toast;
+  await GDX.loadMe();
+  if (!GDX.me || !GDX.me.is_admin) { location.href = "/login?next=/admin"; return; }
+  GDX.renderNav();
+  var cfg = await GDX.loadCfg();
+  var tab = (location.hash || "").slice(1);
+  if (["users", "tx", "jobs", "board", "banners", "music", "settings"].indexOf(tab) < 0) tab = "users";
+  var TABS = [["users", "สมาชิก & เติมเครดิต"], ["tx", "ประวัติเครดิต"], ["jobs", "งาน AI"], ["board", "เว็บบอร์ด"], ["banners", "โฆษณา & แบนเนอร์"], ["music", "คลังเพลง"], ["settings", "ตั้งค่า & ราคา"]];
+
+  async function stats() {
+    var s = await api("GET", "/api/admin/stats");
+    var box = function (t, v, sub) { return '<div class="card"><div class="muted small">' + t + '</div><div style="font-size:1.6rem;font-weight:800">' + v + "</div>" + (sub ? '<div class="small">' + sub + "</div>" : "") + "</div>"; };
+    document.getElementById("stats").innerHTML =
+      box("สมาชิก", s.users) + box("โปรเจกต์", s.projects) + box("งาน AI 24 ชม.", s.jobs_today) +
+      box("เครดิตที่เติมให้ 30 วัน", s.credits_added_30d) + box("เครดิตที่ใช้ 30 วัน", s.credits_spent_30d) +
+      box("API", (s.mock ? '<span class="tag warn">MOCK</span> ' : "") +
+        '<span class="tag ' + (s.openrouter_key ? "ok" : "err") + '">OpenRouter</span> <span class="tag ' + (s.fal_key ? "ok" : "err") + '">fal.ai</span>',
+        '<a href="#" id="test-or">ทดสอบ OpenRouter</a>');
+    document.getElementById("test-or").onclick = async function (e) {
+      e.preventDefault();
+      var r = await api("POST", "/api/admin/test-openrouter");
+      toast(r.ok ? "OpenRouter: " + r.message + (r.data && r.data.usage != null ? " (ใช้ไปแล้ว $" + r.data.usage + ")" : "") : r.message, !r.ok);
+    };
+  }
+
+  function renderTabs() {
+    var t = document.getElementById("tabs"); t.innerHTML = "";
+    TABS.forEach(function (x) {
+      var b = document.createElement("button"); b.textContent = x[1]; if (tab === x[0]) b.className = "on";
+      b.onclick = function () { tab = x[0]; renderTabs(); render(); };
+      t.appendChild(b);
+    });
+  }
+
+  async function render() {
+    var v = document.getElementById("view");
+    v.innerHTML = '<p class="muted">กำลังโหลด...</p>';
+    try { await ({ users: users, tx: tx, jobs: jobs, music: music, banners: banners, board: board, settings: settings })[tab](v); }
+    catch (e) { v.innerHTML = '<div class="card">' + esc(e.message) + "</div>"; }
+  }
+
+  // ---------------- users
+  async function users(v, q) {
+    q = q || "";
+    var r = await api("GET", "/api/admin/users?q=" + encodeURIComponent(q));
+    v.innerHTML = '<div class="card"><div class="row"><input id="q" placeholder="ค้นหา อีเมล / ชื่อ / รหัสสมาชิก" value="' + esc(q) + '" style="max-width:360px"><button class="btn sm" id="qs">ค้นหา</button></div>' +
+      '<p class="small muted">ลูกค้าโอนเงินแล้วแจ้งรหัสสมาชิก (#) ทาง LINE OA → ค้นหา → กด "เติมเครดิต"</p>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>อีเมล / ชื่อ</th><th>เครดิต</th><th>สมัครเมื่อ</th><th></th></tr></thead><tbody>' +
+      r.users.map(function (u) {
+        return "<tr><td>" + u.id + "</td><td>" + esc(u.email) + "<br><span class='small muted'>" + esc(u.name) + "</span> " +
+          (u.is_admin ? '<span class="tag ok">admin</span>' : "") + (u.disabled ? '<span class="tag err">ระงับ</span>' : "") +
+          "</td><td><b>" + u.credits + "</b></td><td class='small'>" + GDX.fmtDate(u.created_at) + "</td><td><div class='td-acts'>" +
+          '<button class="btn sm" data-add="' + u.id + '">เติมเครดิต</button>' +
+          '<button class="btn alt sm" data-hist="' + u.id + '">ประวัติ</button>' +
+          '<button class="btn alt sm" data-more="' + u.id + '">อื่น ๆ</button></div></td></tr>';
+      }).join("") + "</tbody></table></div></div>";
+    var find = function () { users(v, document.getElementById("q").value); };
+    document.getElementById("qs").onclick = find;
+    document.getElementById("q").onkeydown = function (e) { if (e.key === "Enter") find(); };
+    var byId = {}; r.users.forEach(function (u) { byId[u.id] = u; });
+    v.querySelectorAll("[data-add]").forEach(function (b) {
+      b.onclick = function () {
+        var u = byId[b.getAttribute("data-add")];
+        var m = GDX.modal("<h3>เติม / หักเครดิต</h3><p>#" + u.id + " " + esc(u.email) + "<br>คงเหลือ <b>" + u.credits + "</b> เครดิต</p>" +
+          '<div class="row">' + [100, 300, 1000].map(function (n) { return '<button class="btn alt sm" data-n="' + n + '">+' + n + "</button>"; }).join("") + "</div>" +
+          '<label>จำนวน (ใส่ติดลบเพื่อหัก)</label><input id="amt" type="number" value="100">' +
+          '<label>หมายเหตุ (เช่น โอน 99 บาท ผ่าน KWAY)</label><input id="note">' +
+          '<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn alt" id="x">ยกเลิก</button><button class="btn" id="ok">ยืนยัน</button></div>');
+        m.querySelectorAll("[data-n]").forEach(function (x) { x.onclick = function () { m.querySelector("#amt").value = x.getAttribute("data-n"); }; });
+        m.querySelector("#x").onclick = function () { m.remove(); };
+        m.querySelector("#ok").onclick = async function () {
+          try {
+            var res = await api("POST", "/api/admin/users/" + u.id + "/credits", { amount: +m.querySelector("#amt").value, note: m.querySelector("#note").value });
+            toast("สำเร็จ ยอดใหม่ " + res.balance + " เครดิต"); m.remove(); users(v, q); stats();
+          } catch (e) { toast(e.message, true); }
+        };
+      };
+    });
+    v.querySelectorAll("[data-hist]").forEach(function (b) { b.onclick = function () { tx(v, b.getAttribute("data-hist")); }; });
+    v.querySelectorAll("[data-more]").forEach(function (b) {
+      b.onclick = function () {
+        var u = byId[b.getAttribute("data-more")];
+        var m = GDX.modal("<h3>#" + u.id + " " + esc(u.email) + "</h3><div class='grid'>" +
+          '<button class="btn alt" id="rp">รีเซ็ตรหัสผ่าน</button>' +
+          '<button class="btn alt" id="dis">' + (u.disabled ? "ยกเลิกการระงับ" : "ระงับบัญชี") + "</button>" +
+          '<button class="btn alt" id="adm">' + (u.is_admin ? "ถอดสิทธิ์ admin" : "ให้สิทธิ์ admin") + "</button>" +
+          '<button class="btn alt" id="x">ปิด</button></div>');
+        m.querySelector("#x").onclick = function () { m.remove(); };
+        m.querySelector("#rp").onclick = async function () {
+          if (!confirm("สร้างรหัสผ่านใหม่ให้สมาชิกนี้?")) return;
+          var r2 = await api("POST", "/api/admin/users/" + u.id + "/reset-password");
+          m.querySelector(".modal").insertAdjacentHTML("beforeend", '<div class="notice">รหัสผ่านใหม่: <b>' + esc(r2.password) + "</b><br>ส่งให้สมาชิกทาง LINE แล้วให้เปลี่ยนเอง</div>");
+        };
+        m.querySelector("#dis").onclick = async function () {
+          try { await api("POST", "/api/admin/users/" + u.id + "/flags", { disabled: !u.disabled }); m.remove(); users(v, q); } catch (e) { toast(e.message, true); }
+        };
+        m.querySelector("#adm").onclick = async function () {
+          try { await api("POST", "/api/admin/users/" + u.id + "/flags", { is_admin: !u.is_admin }); m.remove(); users(v, q); } catch (e) { toast(e.message, true); }
+        };
+      };
+    });
+  }
+
+  // ---------------- tx
+  async function tx(v, uid) {
+    var r = await api("GET", "/api/admin/tx" + (uid ? "?uid=" + uid : ""));
+    v.innerHTML = '<div class="card">' + (uid ? '<p>ประวัติของสมาชิก #' + esc(uid) + ' · <a href="#" id="all">ดูทั้งหมด</a></p>' : "") +
+      '<div class="tbl-wrap"><table><thead><tr><th>วันที่</th><th>สมาชิก</th><th>รายการ</th><th>เครดิต</th><th>คงเหลือ</th></tr></thead><tbody>' +
+      r.items.map(function (t) {
+        return "<tr><td class='small'>" + GDX.fmtDate(t.created_at) + "</td><td>#" + t.user_id + " " + esc(t.email) + "</td><td>" + esc(t.reason) +
+          (t.admin_id ? ' <span class="tag">โดย admin</span>' : "") + '</td><td style="color:' + (t.amount > 0 ? "var(--ok)" : "var(--err)") + '">' + (t.amount > 0 ? "+" : "") + t.amount + "</td><td>" + t.balance_after + "</td></tr>";
+      }).join("") + "</tbody></table></div></div>";
+    var a = document.getElementById("all"); if (a) a.onclick = function (e) { e.preventDefault(); tx(v); };
+  }
+
+  // ---------------- jobs
+  async function jobs(v) {
+    var r = await api("GET", "/api/admin/jobs");
+    v.innerHTML = '<div class="card tbl-wrap"><table><thead><tr><th>#</th><th>เวลา</th><th>สมาชิก</th><th>งาน</th><th>เครดิต</th><th>สถานะ</th></tr></thead><tbody>' +
+      r.jobs.map(function (j) {
+        return "<tr><td>" + j.id + "</td><td class='small'>" + GDX.fmtDate(j.created_at) + "</td><td>" + esc(j.email) + "</td><td>" + esc(j.kind) + " (โปรเจกต์ #" + j.project_id + ")</td><td>" + j.cost + (j.refunded ? " (คืน " + j.refunded + ")" : "") +
+          "</td><td><span class='tag " + (j.status === "done" ? "ok" : j.status === "failed" ? "err" : "run") + "'>" + j.status + "</span> <span class='small muted'>" + esc(j.error || j.progress) + "</span></td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+
+  // ---------------- music library
+  async function music(v) {
+    var r = await api("GET", "/api/music");
+    var moodOpts = Object.keys(cfg.moods).map(function (m) { return '<option value="' + m + '">' + esc(cfg.moods[m]) + " (" + m + ")</option>"; }).join("");
+    v.innerHTML = '<div class="card"><h3>อัปโหลดเพลงเข้าคลัง</h3><p class="small muted">เพลงในคลังใช้ได้ฟรีกับทุกโปรเจกต์ ระบบเลือกให้อัตโนมัติตามอารมณ์ของฉาก ควรเป็นเพลงที่วนลูปได้ และคุณมีสิทธิ์ให้ใช้เชิงพาณิชย์</p>' +
+      '<form id="mf" class="grid g3"><div><label>ชื่อเพลง</label><input name="title" required></div><div><label>อารมณ์</label><select name="mood">' + moodOpts + "</select></div>" +
+      '<div><label>เครดิต/ผู้แต่ง</label><input name="credit" placeholder="เช่น ดนตรีโดย อ.ดร.วศิน ภิรมย์"></div>' +
+      '<div><label>ไฟล์ (mp3, ogg, wav)</label><input name="file" type="file" accept="audio/*" required></div><div style="display:flex;align-items:flex-end"><button class="btn">อัปโหลด</button></div></form></div>' +
+      '<div class="card" style="margin-top:14px"><div class="tbl-wrap"><table><thead><tr><th>อารมณ์</th><th>ชื่อเพลง</th><th>ฟัง</th><th></th></tr></thead><tbody>' +
+      r.tracks.map(function (t) {
+        return "<tr><td>" + esc(cfg.moods[t.mood] || t.mood) + "</td><td>" + esc(t.title) + "<br><span class='small muted'>" + esc(t.credit) + '</span></td><td><audio controls preload="none" src="/music/' + t.id + '" style="max-width:260px"></audio></td><td><button class="btn danger sm" data-del="' + t.id + '">ลบ</button></td></tr>';
+      }).join("") + "</tbody></table></div>" + (r.tracks.length ? "" : '<p class="muted">ยังไม่มีเพลง</p>') + "</div>";
+    document.getElementById("mf").onsubmit = async function (e) {
+      e.preventDefault();
+      var btn = e.target.querySelector("button"); btn.disabled = true;
+      try { await api("POST", "/api/admin/music", new FormData(e.target), true); toast("อัปโหลดแล้ว"); music(v); }
+      catch (err) { toast(err.message, true); btn.disabled = false; }
+    };
+    v.querySelectorAll("[data-del]").forEach(function (b) {
+      b.onclick = async function () { if (!confirm("ลบเพลงนี้? โปรเจกต์ที่ใช้อยู่จะไม่มีเพลงในอารมณ์นั้น")) return; await api("DELETE", "/api/admin/music/" + b.getAttribute("data-del")); music(v); };
+    });
+  }
+
+  // ---------------- ads & banners
+  var POS = { logo: "โลโก้ (แทนโลโก้ตัวอักษร สูง ≤130px)", header: "ภาพส่วนหัว เช่น ตัวการ์ตูน (สูง 130px)", center: "แบนเนอร์ใหญ่กลางหน้าแรก (หมุนอัตโนมัติ)", left: "คอลัมน์ซ้าย (โฆษณา / บทสัมภาษณ์)", right: "คอลัมน์ขวา (ประวัติ / ข่าว)" };
+  function d10(ts) { if (!ts) return ""; var d = new Date(ts * 1000); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function bannerForm(b) {
+    b = b || { position: "left", link_url: "", title: "", caption: "", sort: 0, active: 1 };
+    return '<div class="grid g2"><div><label>ตำแหน่ง</label><select name="position">' + Object.keys(POS).map(function (k) { return '<option value="' + k + '"' + (b.position === k ? " selected" : "") + ">" + POS[k] + "</option>"; }).join("") + "</select></div>" +
+      '<div><label>ภาพ (png, jpg, gif เคลื่อนไหวได้, webp ≤ 8MB)' + (b.image_url ? " — เว้นว่าง = ใช้ภาพเดิม" : "") + '</label><input type="file" name="file" accept="image/*">' +
+      (b.image_url ? '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="remove_image" value="1"> ลบภาพ (เหลือแค่ข้อความ)</label>' : "") + "</div>" +
+      '<div><label>ลิงก์เมื่อคลิก (นับจำนวนคลิกให้อัตโนมัติ)</label><input name="link_url" value="' + esc(b.link_url) + '" placeholder="https://..."></div>' +
+      '<div><label>หัวข้อ (เช่น ปี 2544 หรือชื่อผู้ลงโฆษณา)</label><input name="title" value="' + esc(b.title) + '"></div>' +
+      '<div style="grid-column:1/-1"><label>ข้อความ (แสดงใต้ภาพในคอลัมน์ซ้าย/ขวา)</label><textarea name="caption" rows="3">' + esc(b.caption) + "</textarea></div>" +
+      '<div><label>เริ่มแสดง (ไม่ใส่ = ทันที)</label><input type="date" name="starts" value="' + d10(b.starts_at) + '"></div>' +
+      '<div><label>หมดอายุ (ไม่ใส่ = ไม่หมด)</label><input type="date" name="ends" value="' + d10(b.ends_at) + '"></div>' +
+      '<div><label>ลำดับ (น้อยขึ้นก่อน)</label><input name="sort" type="number" value="' + (b.sort || 0) + '"></div>' +
+      (b.id ? '<div><label>สถานะ</label><select name="active"><option value="1"' + (b.active ? " selected" : "") + '>แสดง</option><option value="0"' + (b.active ? "" : " selected") + ">ซ่อน</option></select></div>" : "") + "</div>";
+  }
+  async function banners(v) {
+    var r = await api("GET", "/api/admin/banners");
+    var now = Date.now() / 1000;
+    v.innerHTML = '<div class="card"><h3>เพิ่มโฆษณา / แบนเนอร์</h3><p class="small muted">ใส่ภาพ + ลิงก์ + ช่วงวันที่แสดงได้ ระบบนับจำนวนคลิกให้ เหมาะกับการขายพื้นที่โฆษณา · ใส่ภาพโลโก้และตัวการ์ตูน GamedevX เดิมในตำแหน่ง "โลโก้" กับ "ภาพส่วนหัว" เพื่อให้เหมือนเว็บเดิม</p>' +
+      '<form id="bf">' + bannerForm() + '<button class="btn" style="margin-top:12px">เพิ่ม</button></form></div>' +
+      '<div class="card" style="margin-top:14px"><div class="tbl-wrap"><table><thead><tr><th>ภาพ</th><th>ตำแหน่ง</th><th>หัวข้อ / ข้อความ</th><th>ลิงก์</th><th>คลิก</th><th>ช่วงเวลา</th><th>สถานะ</th><th></th></tr></thead><tbody>' +
+      r.banners.map(function (b) {
+        var expired = b.ends_at && b.ends_at + 86400 < now;
+        return "<tr><td>" + (b.image_url ? '<img src="' + esc(b.image_url) + '" style="max-width:140px;max-height:70px;border:1px solid var(--line)">' : '<span class="muted small">ข้อความ</span>') +
+          "</td><td class='small'>" + esc(POS[b.position] || b.position) + " · " + b.sort + "</td><td><b>" + esc(b.title) + '</b><div class="small muted">' + esc((b.caption || "").slice(0, 100)) + "</div></td>" +
+          '<td class="small" style="max-width:180px;word-break:break-all">' + esc(b.link_url) + "</td><td><b>" + (b.clicks || 0) + "</b>" + (b.clicks ? ' <a href="#" class="small" data-rc="' + b.id + '">รีเซ็ต</a>' : "") + "</td>" +
+          '<td class="small">' + (b.starts_at || b.ends_at ? (d10(b.starts_at) || "…") + " → " + (d10(b.ends_at) || "…") : "ตลอด") + "</td><td>" +
+          (expired ? '<span class="tag err">หมดอายุ</span>' : b.active ? '<span class="tag ok">แสดง</span>' : '<span class="tag">ซ่อน</span>') +
+          '</td><td><div class="td-acts"><button class="btn alt sm" data-edit="' + b.id + '">แก้ไข</button><button class="btn danger sm" data-bdel="' + b.id + '">ลบ</button></div></td></tr>';
+      }).join("") + "</tbody></table></div>" + (r.banners.length ? "" : '<p class="muted">ยังไม่มีแบนเนอร์</p>') + "</div>";
+    document.getElementById("bf").onsubmit = async function (e) {
+      e.preventDefault();
+      try { await api("POST", "/api/admin/banners", new FormData(e.target), true); toast("เพิ่มแล้ว"); banners(v); } catch (err) { toast(err.message, true); }
+    };
+    var byId = {}; r.banners.forEach(function (b) { byId[b.id] = b; });
+    v.querySelectorAll("[data-edit]").forEach(function (btn) {
+      btn.onclick = function () {
+        var b = byId[btn.getAttribute("data-edit")];
+        var m = GDX.modal('<h3>แก้ไขโฆษณา / แบนเนอร์</h3>' + (b.image_url ? '<img src="' + esc(b.image_url) + '" style="max-width:100%;max-height:120px">' : "") + '<form id="ef">' + bannerForm(b) +
+          '<div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn alt" id="x">ยกเลิก</button><button class="btn">บันทึก</button></div></form>');
+        m.querySelector("#x").onclick = function () { m.remove(); };
+        m.querySelector("#ef").onsubmit = async function (e) {
+          e.preventDefault();
+          try { await api("POST", "/api/admin/banners/" + b.id, new FormData(e.target), true); m.remove(); toast("บันทึกแล้ว"); banners(v); } catch (err) { toast(err.message, true); }
+        };
+      };
+    });
+    v.querySelectorAll("[data-bdel]").forEach(function (btn) {
+      btn.onclick = async function () { if (!confirm("ลบแบนเนอร์นี้?")) return; await api("DELETE", "/api/admin/banners/" + btn.getAttribute("data-bdel")); banners(v); };
+    });
+    v.querySelectorAll("[data-rc]").forEach(function (a) {
+      a.onclick = async function (e) { e.preventDefault(); if (!confirm("รีเซ็ตจำนวนคลิก?")) return; await api("POST", "/api/admin/banners/" + a.getAttribute("data-rc") + "/reset-clicks"); banners(v); };
+    });
+  }
+
+  // ---------------- web board moderation
+  async function board(v, q, mode) {
+    q = q || ""; mode = mode || "topics";
+    v.innerHTML = '<div class="card"><div class="row"><button class="btn sm ' + (mode === "topics" ? "" : "alt") + '" id="m-t">กระทู้</button><button class="btn sm ' + (mode === "comments" ? "" : "alt") + '" id="m-c">ความคิดเห็นล่าสุด</button>' +
+      '<input id="bq" placeholder="ค้นหา ข้อความ / ชื่อผู้โพสต์ / IP" value="' + esc(q) + '" style="max-width:320px"><button class="btn sm" id="bqs">ค้นหา</button>' +
+      '<a href="/#post" class="btn alt sm" target="_blank">ตั้งกระทู้ประกาศ</a></div><div id="bl" style="margin-top:12px"></div></div>';
+    document.getElementById("m-t").onclick = function () { board(v, q, "topics"); };
+    document.getElementById("m-c").onclick = function () { board(v, q, "comments"); };
+    var go = function () { board(v, document.getElementById("bq").value, mode); };
+    document.getElementById("bqs").onclick = go;
+    document.getElementById("bq").onkeydown = function (e) { if (e.key === "Enter") go(); };
+    var bl = document.getElementById("bl");
+    if (mode === "topics") {
+      var r = await api("GET", "/api/admin/board/topics?q=" + encodeURIComponent(q));
+      var byId = {}; r.topics.forEach(function (t) { byId[t.id] = t; });
+      bl.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>กระทู้</th><th>ผู้โพสต์</th><th>วันที่</th><th>อ่าน/ตอบ</th><th>สถานะ</th><th></th></tr></thead><tbody>' +
+        r.topics.map(function (t) {
+          return "<tr><td>" + t.id + '</td><td><a href="/board/' + t.id + '" target="_blank">' + esc(t.title) + '</a><div class="small muted">' + esc(t.category || "") + (t.kind === "game" ? " · เกม" : "") + (t.image ? " · มีรูป" : "") + "</div></td>" +
+            "<td>" + esc(t.uname || t.guest_name || "Guest") + (t.user_id ? "" : ' <span class="tag">guest</span>') + '<div class="small muted">' + esc(t.ip || "") + "</div></td>" +
+            '<td class="small">' + GDX.fmtDate(t.created_at) + "</td><td>" + t.views + "/" + t.reply_count + "</td><td>" +
+            (t.pinned ? '<span class="tag warn">ปักหมุด</span> ' : "") + (t.locked ? '<span class="tag">ล็อก</span> ' : "") + (t.hidden ? '<span class="tag err">ซ่อน</span>' : "") + "</td>" +
+            '<td><div class="td-acts"><button class="btn alt sm" data-te="' + t.id + '">แก้ไข</button>' +
+            '<button class="btn alt sm" data-tf="pinned" data-id="' + t.id + '">' + (t.pinned ? "เลิกปัก" : "ปักหมุด") + "</button>" +
+            '<button class="btn alt sm" data-tf="locked" data-id="' + t.id + '">' + (t.locked ? "ปลดล็อก" : "ล็อก") + "</button>" +
+            '<button class="btn alt sm" data-tf="hidden" data-id="' + t.id + '">' + (t.hidden ? "แสดง" : "ซ่อน") + "</button>" +
+            '<button class="btn danger sm" data-td="' + t.id + '">ลบ</button>' +
+            (t.user_id ? '<button class="btn danger sm" data-ban="' + t.user_id + '">แบนผู้ใช้</button>' : "") + "</div></td></tr>";
+        }).join("") + "</tbody></table></div>" + (r.topics.length ? "" : '<p class="muted">ไม่มีกระทู้</p>');
+      bl.querySelectorAll("[data-tf]").forEach(function (b) {
+        b.onclick = async function () {
+          var t = byId[b.getAttribute("data-id")], f = b.getAttribute("data-tf"), body = {};
+          body[f] = !t[f];
+          await api("PUT", "/api/admin/board/topics/" + t.id, body); board(v, q, mode);
+        };
+      });
+      bl.querySelectorAll("[data-td]").forEach(function (b) {
+        b.onclick = async function () { if (!confirm("ลบกระทู้นี้และความเห็นทั้งหมดถาวร?")) return; await api("DELETE", "/api/admin/board/topics/" + b.getAttribute("data-td")); board(v, q, mode); };
+      });
+      bl.querySelectorAll("[data-te]").forEach(function (b) {
+        b.onclick = function () {
+          var t = byId[b.getAttribute("data-te")];
+          var m = GDX.modal('<h3>แก้ไขกระทู้ #' + t.id + '</h3><label>หัวข้อ</label><input id="et" value="' + esc(t.title) + '"><label>หมวด</label><select id="ec">' +
+            r.categories.map(function (c) { return "<option" + (c === t.category ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + '</select><label>ข้อความ</label><textarea id="eb" rows="8">' + esc(t.body) + "</textarea>" +
+            (t.image ? '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="eri" style="width:auto"> ลบรูปที่แนบ</label>' : "") +
+            '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn alt" id="x">ยกเลิก</button><button class="btn" id="ok">บันทึก</button></div>');
+          m.querySelector("#x").onclick = function () { m.remove(); };
+          m.querySelector("#ok").onclick = async function () {
+            await api("PUT", "/api/admin/board/topics/" + t.id, { title: m.querySelector("#et").value, category: m.querySelector("#ec").value, body: m.querySelector("#eb").value, remove_image: !!(m.querySelector("#eri") || {}).checked });
+            m.remove(); toast("บันทึกแล้ว"); board(v, q, mode);
+          };
+        };
+      });
+    } else {
+      var rc = await api("GET", "/api/admin/board/comments?q=" + encodeURIComponent(q));
+      var cById = {}; rc.comments.forEach(function (c) { cById[c.id] = c; });
+      bl.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>ความคิดเห็น</th><th>ในกระทู้</th><th>ผู้โพสต์</th><th>วันที่</th><th></th></tr></thead><tbody>' +
+        rc.comments.map(function (c) {
+          return "<tr><td>" + c.id + "</td><td>" + esc((c.body || "").slice(0, 200)) + (c.image ? ' <span class="tag">มีรูป</span>' : "") + (c.hidden ? ' <span class="tag err">ซ่อน</span>' : "") +
+            '</td><td><a href="/board/' + c.topic_id + "#c" + c.id + '" target="_blank">' + esc(c.topic_title || "") + "</a></td><td>" + esc(c.uname || c.guest_name || "Guest") +
+            '<div class="small muted">' + esc(c.ip || "") + '</div></td><td class="small">' + GDX.fmtDate(c.created_at) + "</td>" +
+            '<td><div class="td-acts"><button class="btn alt sm" data-ce="' + c.id + '">แก้ไข</button><button class="btn alt sm" data-ch="' + c.id + '">' + (c.hidden ? "แสดง" : "ซ่อน") + "</button>" +
+            '<button class="btn danger sm" data-cd="' + c.id + '">ลบ</button>' + (c.user_id ? '<button class="btn danger sm" data-ban="' + c.user_id + '">แบนผู้ใช้</button>' : "") + "</div></td></tr>";
+        }).join("") + "</tbody></table></div>" + (rc.comments.length ? "" : '<p class="muted">ไม่มีความคิดเห็น</p>');
+      bl.querySelectorAll("[data-ch]").forEach(function (b) {
+        b.onclick = async function () { var c = cById[b.getAttribute("data-ch")]; await api("PUT", "/api/admin/board/comments/" + c.id, { hidden: !c.hidden }); board(v, q, mode); };
+      });
+      bl.querySelectorAll("[data-cd]").forEach(function (b) {
+        b.onclick = async function () { if (!confirm("ลบความคิดเห็นนี้?")) return; await api("DELETE", "/api/admin/board/comments/" + b.getAttribute("data-cd")); board(v, q, mode); };
+      });
+      bl.querySelectorAll("[data-ce]").forEach(function (b) {
+        b.onclick = function () {
+          var c = cById[b.getAttribute("data-ce")];
+          var m = GDX.modal('<h3>แก้ไขความคิดเห็น #' + c.id + '</h3><textarea id="eb" rows="8">' + esc(c.body) + "</textarea>" +
+            (c.image ? '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="eri" style="width:auto"> ลบรูปที่แนบ</label>' : "") +
+            '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn alt" id="x">ยกเลิก</button><button class="btn" id="ok">บันทึก</button></div>');
+          m.querySelector("#x").onclick = function () { m.remove(); };
+          m.querySelector("#ok").onclick = async function () {
+            await api("PUT", "/api/admin/board/comments/" + c.id, { body: m.querySelector("#eb").value, remove_image: !!(m.querySelector("#eri") || {}).checked });
+            m.remove(); toast("บันทึกแล้ว"); board(v, q, mode);
+          };
+        };
+      });
+    }
+    bl.querySelectorAll("[data-ban]").forEach(function (b) {
+      b.onclick = async function () {
+        if (!confirm("ระงับบัญชีผู้ใช้นี้? (เข้าระบบและโพสต์ไม่ได้ ยกเลิกได้ที่แท็บสมาชิก)")) return;
+        try { await api("POST", "/api/admin/users/" + b.getAttribute("data-ban") + "/flags", { disabled: true }); toast("ระงับบัญชีแล้ว"); } catch (e) { toast(e.message, true); }
+      };
+    });
+  }
+
+  // ---------------- settings
+  var LABELS = {
+    cost_story: "ราคา: เขียนเรื่องทั้งเกม (เครดิต)", cost_scene_rewrite: "ราคา: เขียนฉากใหม่", cost_character_image: "ราคา: ภาพตัวละคร / ภาพ",
+    cost_background_image: "ราคา: ภาพฉากหลัง / ภาพ", cost_music: "ราคา: แต่งเพลงด้วย AI / เพลง", cost_video: "ราคา: เรนเดอร์วิดีโอ MP4 / ครั้ง", welcome_credits: "เครดิตฟรีสำหรับสมาชิกใหม่",
+    image_provider: "ผู้ให้บริการสร้างภาพ (openrouter หรือ fal)", or_text_model: "OpenRouter: โมเดลเขียนเรื่อง", or_image_model: "OpenRouter: โมเดลสร้างภาพ",
+    fal_image_model: "fal.ai: โมเดลสร้างภาพ (เมื่อเลือก fal)", fal_image_edit_model: "fal.ai: โมเดลแก้ภาพจากภาพอ้างอิง (สีหน้าตัวละคร)",
+    fal_bg_remove_model: "fal.ai: โมเดลลบพื้นหลัง (เว้นว่าง = ใช้ตัวลบในเครื่อง)", fal_music_model: "fal.ai: โมเดลแต่งเพลง", music_seconds: "ความยาวเพลงที่แต่ง (วินาที)",
+    site_title: "ชื่อเว็บ (แถบชื่อเบราว์เซอร์)", site_tagline: "ข้อความในส่วนหัว (แสดงเมื่อไม่มีภาพส่วนหัว)", history_title: "หัวข้อคอลัมน์ขวา (ประวัติ)", left_title: "หัวข้อโฆษณาคอลัมน์ซ้าย",
+    allow_guest_post: "ให้คนที่ไม่ได้สมัคร (Guest) โพสต์ได้ (1 = ได้, 0 = ไม่ได้)", board_per_page: "จำนวนกระทู้ต่อหน้า",
+    board_categories: "หมวดเว็บบอร์ด (บรรทัดละ 1 หมวด)", bad_words: "คำต้องห้าม (บรรทัดละ 1 คำ แทนด้วย ***)",
+    topup_packages: "แพ็กเกจเติมเครดิต (บรรทัดละ 1 แพ็กเกจ)", announcement: "ประกาศ (แสดงในหน้าโปรเจกต์)"
+  };
+  async function settings(v) {
+    var r = await api("GET", "/api/admin/settings");
+    var s = r.settings;
+    v.innerHTML = '<div class="card"><form id="sf" class="grid g2">' + Object.keys(LABELS).map(function (k) {
+      var big = k === "topup_packages" || k === "announcement" || k === "board_categories" || k === "bad_words";
+      return "<div" + (big ? ' style="grid-column:1/-1"' : "") + "><label>" + esc(LABELS[k]) + "</label>" +
+        (big ? '<textarea name="' + k + '" rows="3">' + esc(s[k]) + "</textarea>" : '<input name="' + k + '" value="' + esc(s[k]) + '">') + "</div>";
+    }).join("") + '<div style="grid-column:1/-1"><button class="btn">บันทึกการตั้งค่า</button></div></form>' +
+      '<p class="small muted">ดูรหัสโมเดลได้ที่ openrouter.ai/models และ fal.ai/models — เปลี่ยนโมเดลได้ทันทีโดยไม่ต้อง deploy ใหม่<br>' +
+      'คีย์ API ตั้งใน Environment Variables ของ Coolify (OPENROUTER_API_KEY, FAL_KEY) ไม่เก็บในฐานข้อมูล</p></div>';
+    document.getElementById("sf").onsubmit = async function (e) {
+      e.preventDefault();
+      var out = {}; new FormData(e.target).forEach(function (val, key) { out[key] = val; });
+      try { await api("PUT", "/api/admin/settings", { settings: out }); toast("บันทึกแล้ว"); } catch (err) { toast(err.message, true); }
+    };
+  }
+
+  stats(); renderTabs(); render();
+})();
+</script>
+</body>
+</html>

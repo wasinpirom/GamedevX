@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สตูดิโอ — GamedevX</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="/static/css/player.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main class="container" style="padding-top:20px">
+  <div class="row" style="justify-content:space-between">
+    <div><a href="/app" class="small">← โปรเจกต์ทั้งหมด</a><h1 id="ptitle" style="margin:4px 0 0">...</h1></div>
+    <div class="row">
+      <span class="small muted" id="dirty" style="display:none">มีการแก้ไขที่ยังไม่บันทึก</span>
+      <button class="btn" id="save" style="display:none">บันทึก</button>
+    </div>
+  </div>
+  <div id="jobs" class="jobs"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="view"></div>
+</main>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/player.js"></script>
+<script src="/static/js/studio.js"></script>
+</body>
+</html>

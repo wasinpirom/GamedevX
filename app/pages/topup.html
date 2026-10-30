@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เติมเครดิต — GamedevX</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main class="container" style="max-width:860px;padding-top:30px">
+  <h1>เติมเครดิต</h1>
+  <div class="grid g2">
+    <div class="card">
+      <h3>แพ็กเกจเครดิต</h3>
+      <div id="packages"></div>
+    </div>
+    <div class="card">
+      <h3>วิธีเติมเครดิต</h3>
+      <ol style="padding-left:20px;margin:0">
+        <li style="margin-bottom:10px">เลือกช่องทางชำระเงิน
+          <div class="row" style="margin-top:8px">
+            <a class="btn" id="line-btn" target="_blank" rel="noopener">แชท LINE OA</a>
+            <a class="btn cyan" id="kway-btn" target="_blank" rel="noopener">ซื้อผ่าน KWAY PAY</a>
+          </div>
+        </li>
+        <li style="margin-bottom:10px">แจ้งแพ็กเกจที่ต้องการ พร้อม <b>รหัสสมาชิก</b> ด้านล่าง</li>
+        <li>แอดมินเติมเครดิตเข้าบัญชีให้ (ปกติภายในไม่กี่ชั่วโมง)</li>
+      </ol>
+      <div class="notice" id="member-box" style="margin-top:16px"></div>
+      <p class="small muted">ต้องการจ่ายด้วยบัตรเครดิต แจ้งทาง LINE OA ได้ แอดมินจะส่งลิงก์ชำระเงินให้</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px" id="history-card">
+    <h3>ประวัติเครดิต</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>วันที่</th><th>รายการ</th><th>เครดิต</th><th>คงเหลือ</th></tr></thead><tbody id="hist"></tbody></table></div>
+  </div>
+</main>
+<script src="/static/js/common.js"></script>
+<script>
+(async function () {
+  await GDX.loadMe();
+  GDX.renderNav();
+  var c = await GDX.loadCfg();
+  document.getElementById("line-btn").href = c.line_url;
+  document.getElementById("line-btn").textContent = "แชท LINE OA " + c.line_oa;
+  document.getElementById("kway-btn").href = c.kway_url;
+  document.getElementById("packages").innerHTML = c.packages.length
+    ? c.packages.map(function (p) { return '<div style="padding:10px 0;border-bottom:1px solid var(--line);font-size:1.1rem">' + GDX.esc(p) + "</div>"; }).join("")
+    : '<p class="muted">ติดต่อ LINE OA เพื่อสอบถามแพ็กเกจ</p>';
+  var mb = document.getElementById("member-box");
+  if (GDX.me) {
+    mb.innerHTML = "รหัสสมาชิกของคุณ: <b style='font-size:1.2rem'>#" + GDX.me.id + "</b><br><span class='small'>" + GDX.esc(GDX.me.email) + "</span>";
+    var h = await GDX.api("GET", "/api/credits/history");
+    document.getElementById("hist").innerHTML = h.items.map(function (t) {
+      return "<tr><td>" + GDX.fmtDate(t.created_at) + "</td><td>" + GDX.esc(t.reason) + '</td><td style="color:' + (t.amount > 0 ? "var(--ok)" : "var(--err)") + '">' + (t.amount > 0 ? "+" : "") + t.amount + "</td><td>" + t.balance_after + "</td></tr>";
+    }).join("") || '<tr><td colspan="4" class="muted">ยังไม่มีรายการ</td></tr>';
+  } else {
+    mb.innerHTML = '<a href="/login?next=/topup">เข้าสู่ระบบ</a> เพื่อดูรหัสสมาชิก';
+    document.getElementById("history-card").style.display = "none";
+  }
+})();
+</script>
+</body>
+</html>

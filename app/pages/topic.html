@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GamedevX New Generation</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/classic.css">
+<link rel="stylesheet" href="/static/css/player.css">
+</head>
+<body data-keep-title="1">
+<div id="cx-head"></div>
+<div id="cx-frame">
+  <div id="cx-left"></div>
+  <div id="cx-center">
+    <div class="cx-crumb"><a href="/">GamedevX</a> » <a href="/#board">เว็บบอร์ด</a> » <span id="crumb"></span></div>
+    <div id="topic"></div>
+    <div id="comments"></div>
+    <div class="cx-panel" id="reply-box">
+      <div class="cx-panel-h">แสดงความคิดเห็น</div>
+      <div id="reply"></div>
+    </div>
+  </div>
+  <div id="cx-right"></div>
+</div>
+<div id="cx-foot"></div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/classic.js"></script>
+<script src="/static/js/player.js"></script>
+<script>
+(async function () {
+  var esc = GDX.esc, api = GDX.api, toast = GDX.toast;
+  var tid = +location.pathname.split("/").pop();
+  var ctx = await CX.init();
+  var r;
+  try { r = await api("GET", "/api/board/" + tid); }
+  catch (e) { document.getElementById("topic").innerHTML = '<div class="cx-note">' + esc(e.message) + ' — <a href="/">กลับหน้าแรก</a></div>'; document.getElementById("reply-box").style.display = "none"; return; }
+  var t = r.topic;
+  document.title = t.title + " - GamedevX New Generation";
+  document.getElementById("crumb").textContent = t.title;
+
+  var tools = "";
+  if (t.can_manage) tools += '<a href="#" id="del">[ลบกระทู้]</a> ';
+  if (t.is_admin) tools += '<a href="#" id="pin">[' + (t.pinned ? "เลิกปักหมุด" : "ปักหมุด") + ']</a> <a href="/admin#board">[จัดการในหลังบ้าน]</a>' + (t.ip ? " IP " + esc(t.ip) : "");
+
+  var html = '<div class="cx-panel' + (t.hidden ? " hid" : "") + '"><div class="cx-panel-h"><span>' + (t.kind === "game" ? "[เกม] " : "") + esc(t.title) +
+    (t.locked ? " [ล็อก]" : "") + (t.hidden ? " [ซ่อนอยู่]" : "") + "</span><span>" + esc(t.category || "") + "</span></div>";
+  if (t.kind === "game") {
+    html += '<div style="padding:8px 10px 0"><div class="cx-player" id="player"></div>' +
+      '<div style="margin-top:5px"><button class="cx-btn" id="fs">เล่นเต็มจอ</button> <span style="font-size:11px;color:#555">คลิกหรือกด Space เพื่อเล่นต่อ</span></div>' +
+      (t.synopsis ? '<p style="margin:8px 0 0"><b>เรื่องย่อ:</b> ' + esc(t.synopsis) + "</p>" : "") + "</div>";
+  }
+  html += '<div class="cx-panel-b">' + (CX.richText(t.body) || "") +
+    (t.image_url ? '<a href="' + esc(t.image_url) + '" target="_blank"><img class="cx-post-img" src="' + esc(t.image_url) + '" alt=""></a>' : "") + "</div>" +
+    '<div class="cx-panel-f"><span>จากคุณ : <b' + (t.is_guest ? ' style="color:#999"' : ' style="color:#0d6b8c"') + ">" + esc(t.author) + "</b> · " + CX.fmtFull(t.created_at) +
+    " · อ่าน " + t.views + " ครั้ง</span><span>" + tools + "</span></div></div>";
+  document.getElementById("topic").innerHTML = html;
+
+  if (t.kind === "game") {
+    try {
+      var data = await api("GET", "/api/public/game/" + tid);
+      var box = document.getElementById("player");
+      GDXPlayer.mount(box, data, {});
+      document.getElementById("fs").onclick = function () {
+        if (box.requestFullscreen) box.requestFullscreen(); else if (box.webkitRequestFullscreen) box.webkitRequestFullscreen();
+      };
+      document.addEventListener("fullscreenchange", function () { setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 120); });
+    } catch (e) { document.getElementById("player").innerHTML = '<p style="color:#fff;padding:20px">' + esc(e.message) + "</p>"; }
+  }
+  var del = document.getElementById("del");
+  if (del) del.onclick = async function (e) { e.preventDefault(); if (!confirm("ลบกระทู้นี้และความเห็นทั้งหมด?")) return; await api("DELETE", "/api/board/" + tid); location.href = "/#board"; };
+  var pin = document.getElementById("pin");
+  if (pin) pin.onclick = async function (e) { e.preventDefault(); await api("POST", "/api/board/" + tid + "/pin", { pinned: !t.pinned }); location.reload(); };
+
+  document.getElementById("comments").innerHTML = r.comments.map(function (c, i) {
+    return '<div class="cx-panel reply' + (c.hidden ? " hid" : "") + '" id="c' + c.id + '"><div class="cx-panel-h"><span>ความคิดเห็นที่ ' + (i + 1) + (c.hidden ? " [ซ่อนอยู่]" : "") + "</span></div>" +
+      '<div class="cx-panel-b">' + CX.richText(c.body) +
+      (c.image_url ? '<a href="' + esc(c.image_url) + '" target="_blank"><img class="cx-post-img" src="' + esc(c.image_url) + '" alt=""></a>' : "") + "</div>" +
+      '<div class="cx-panel-f"><span>จากคุณ : <b' + (c.is_guest ? ' style="color:#999"' : ' style="color:#0d6b8c"') + ">" + esc(c.author) + "</b> · " + CX.fmtFull(c.created_at) +
+      (c.ip ? " · IP " + esc(c.ip) : "") + "</span><span>" + (c.can_delete ? '<a href="#" data-del="' + c.id + '">[ลบ]</a>' : "") + "</span></div></div>";
+  }).join("");
+  document.querySelectorAll("[data-del]").forEach(function (a) {
+    a.onclick = async function (e) { e.preventDefault(); if (!confirm("ลบความเห็นนี้?")) return; await api("DELETE", "/api/board/comments/" + a.getAttribute("data-del")); location.reload(); };
+  });
+
+  var rp = document.getElementById("reply");
+  if (t.locked) {
+    rp.innerHTML = '<div class="cx-form">กระทู้นี้ถูกล็อก ไม่สามารถแสดงความคิดเห็นได้</div>';
+  } else if (!ctx.me && !r.allow_guest) {
+    rp.innerHTML = '<div class="cx-form">กรุณา Sign In ที่กล่อง GamedevX Member ด้านซ้าย หรือ <a href="/login?mode=register&next=' + encodeURIComponent(location.pathname) + '">สมัครสมาชิก</a> เพื่อแสดงความคิดเห็น</div>';
+  } else {
+    rp.innerHTML = '<form class="cx-form" id="rf"><table>' +
+      '<tr><td class="l">ข้อความ</td><td><textarea name="body" style="height:110px"></textarea></td></tr>' +
+      '<tr><td class="l">รูปภาพ</td><td><input type="file" name="file" accept="image/*"></td></tr>' +
+      (ctx.me ? "" : '<tr><td class="l">ชื่อผู้โพสต์</td><td><input type="text" name="guest_name" maxlength="30"></td></tr>') +
+      '<tr><td></td><td><div class="cx-hp"><input type="text" name="website" tabindex="-1" autocomplete="off"></div><button class="cx-btn">ส่งความคิดเห็น</button></td></tr></table></form>';
+    document.getElementById("rf").onsubmit = async function (e) {
+      e.preventDefault();
+      var btn = e.target.querySelector("button"); btn.disabled = true;
+      try { await api("POST", "/api/board/" + tid + "/comments", new FormData(e.target), true); location.reload(); }
+      catch (err) { toast(err.message, true); btn.disabled = false; }
+    };
+  }
+})();
+</script>
+</body>
+</html>

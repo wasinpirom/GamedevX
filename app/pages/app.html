@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>โปรเจกต์ของฉัน — GamedevX</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main class="container" style="padding-top:24px">
+  <div id="announce"></div>
+  <div class="row" style="justify-content:space-between">
+    <h1 style="margin:0">โปรเจกต์ของฉัน</h1>
+    <button class="btn" id="new-btn">+ สร้างเกมใหม่</button>
+  </div>
+
+  <div class="card" id="wizard" style="display:none;margin-top:18px">
+    <h2>สร้างเกม Visual Novel ใหม่</h2>
+    <form id="wf">
+      <label>ไอเดียเกม / พล็อต (ยิ่งละเอียด AI ยิ่งเขียนตรงใจ)</label>
+      <textarea name="idea" required minlength="10" rows="5" placeholder="เช่น นักเรียนใหม่ย้ายมาโรงเรียนต่างจังหวัด แล้วพบว่าห้องสมุดเก่ามีหนังสือที่พาย้อนเวลาไปสมัยอยุธยา ต้องเลือกว่าจะช่วยใคร..."></textarea>
+      <div class="grid g3">
+        <div><label>แนวเกม</label>
+          <select name="genre">
+            <option>โรแมนติก</option><option>ผจญภัย</option><option>สืบสวน</option><option>สยองขวัญ / ผีไทย</option>
+            <option>แฟนตาซี</option><option>ชีวิตประจำวัน</option><option>ตลก</option><option>ไซไฟ</option><option>การศึกษา / ประวัติศาสตร์</option>
+          </select></div>
+        <div><label>สไตล์ภาพ</label>
+          <select name="art_style">
+            <option value="anime">อนิเมะ</option><option value="thai_art">ภาพไทยร่วมสมัย</option>
+            <option value="watercolor">สีน้ำ</option><option value="semi_real">กึ่งสมจริง</option>
+            <option value="chibi">ชิบิ น่ารัก</option><option value="pixel">พิกเซลอาร์ต</option>
+          </select></div>
+        <div><label>ภาษาในเกม</label>
+          <select name="language"><option value="th">ภาษาไทย</option><option value="en">English</option></select></div>
+        <div><label>จำนวนฉาก (รวมตอนจบ)</label><input name="scenes" type="number" min="3" max="15" value="6"></div>
+        <div><label>จำนวนตัวละคร</label><input name="characters" type="number" min="1" max="5" value="2"></div>
+        <div><label>รูปแบบเรื่อง</label>
+          <select name="branching"><option value="1">มีทางเลือก หลายตอนจบ</option><option value="0">เรื่องเส้นเดียว</option></select></div>
+      </div>
+      <p class="small muted" style="margin-top:12px">💡 อยากให้พระเอกหน้าคล้ายคุณ? หลัง AI เขียนเรื่องเสร็จ ไปที่แท็บ "ตัวละคร" แล้วอัปโหลดภาพถ่ายหรือภาพสเก็ตช์เป็นภาพอ้างอิงได้</p>
+      <div class="row" style="justify-content:flex-end;margin-top:18px">
+        <button type="button" class="btn alt" id="cancel">ยกเลิก</button>
+        <button class="btn" id="go">ประเมินเครดิต แล้วสร้างเรื่อง →</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="proj-grid" id="list" style="margin-top:20px"></div>
+</main>
+<script src="/static/js/common.js"></script>
+<script>
+(async function () {
+  await GDX.loadMe();
+  if (!GDX.me) { location.href = "/login?next=/app"; return; }
+  GDX.renderNav();
+  var c = await GDX.loadCfg();
+  if (c.announcement) document.getElementById("announce").innerHTML = '<div class="notice">' + GDX.esc(c.announcement) + "</div>";
+  if (c.mock) document.getElementById("announce").innerHTML += '<div class="notice">โหมดทดสอบ (MOCK_AI=1): ระบบสร้างผลลัพธ์ตัวอย่าง ไม่เรียก API จริง</div>';
+  var wiz = document.getElementById("wizard");
+  document.getElementById("new-btn").onclick = function () { wiz.style.display = "block"; wiz.scrollIntoView({ behavior: "smooth" }); };
+  document.getElementById("cancel").onclick = function () { wiz.style.display = "none"; };
+  if (location.hash === "#new") { wiz.style.display = "block"; setTimeout(function () { wiz.scrollIntoView({ behavior: "smooth" }); }, 100); }
+
+  async function load() {
+    var r = await GDX.api("GET", "/api/projects");
+    GDX.setCredits(r.credits);
+    var el = document.getElementById("list");
+    if (!r.projects.length) {
+      el.innerHTML = '<div class="card" style="grid-column:1/-1;text-align:center;padding:40px"><h3>ยังไม่มีโปรเจกต์</h3><p class="muted">กด "สร้างเกมใหม่" เพื่อเริ่มเกมแรกของคุณ</p></div>';
+      wiz.style.display = "block";
+      return;
+    }
+    el.innerHTML = r.projects.map(function (p) {
+      return '<a class="card proj-card" href="/project/' + p.id + '"><div class="cover" style="' + (p.cover ? "background-image:url('" + p.cover + "')" : "") + '"></div>' +
+        '<div class="info"><b>' + GDX.esc(p.title) + '</b><div class="small muted">แก้ไขล่าสุด ' + GDX.fmtDate(p.updated_at) + "</div>" +
+        (p.running ? '<span class="tag run"><span class="spinner"></span> กำลังทำงาน</span>' : (p.has_story ? "" : '<span class="tag warn">ยังไม่มีเรื่อง</span>')) +
+        "</div></a>";
+    }).join("");
+  }
+  load();
+
+  document.getElementById("wf").onsubmit = async function (e) {
+    e.preventDefault();
+    var fd = new FormData(e.target);
+    var brief = {
+      idea: fd.get("idea"), genre: fd.get("genre"), art_style: fd.get("art_style"), language: fd.get("language"),
+      scenes: +fd.get("scenes"), characters: +fd.get("characters"), branching: fd.get("branching") === "1"
+    };
+    var btn = document.getElementById("go"); btn.disabled = true;
+    try {
+      var p = await GDX.api("POST", "/api/projects", brief);
+      var job = await GDX.confirmAndRun(p.id, "story", {}, "ให้ AI เขียนเรื่องและวางโครงเกม");
+      location.href = "/project/" + p.id;
+    } catch (err) { GDX.toast(err.message, true); btn.disabled = false; }
+  };
+})();
+</script>
+</body>
+</html>

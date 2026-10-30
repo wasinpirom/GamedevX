@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ — GamedevX</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main class="container" style="max-width:440px;padding-top:50px">
+  <div class="card">
+    <h2 id="title">เข้าสู่ระบบ</h2>
+    <form id="f">
+      <div id="name-row" style="display:none"><label>ชื่อที่แสดง</label><input name="name" autocomplete="nickname"></div>
+      <label>อีเมล</label><input name="email" type="email" required autocomplete="email">
+      <label>รหัสผ่าน</label><input name="password" type="password" required minlength="8" autocomplete="current-password">
+      <button class="btn" style="width:100%;margin-top:18px" id="submit">เข้าสู่ระบบ</button>
+    </form>
+    <p class="small muted" style="margin-top:14px" id="switch"></p>
+    <p class="small muted" id="forgot">ลืมรหัสผ่าน? ติดต่อ LINE OA <a id="line" href="#">@wasin</a></p>
+  </div>
+</main>
+<script src="/static/js/common.js"></script>
+<script>
+(async function () {
+  var params = new URLSearchParams(location.search);
+  var mode = params.get("mode") === "register" || location.pathname === "/register" ? "register" : "login";
+  var next = params.get("next") || "/app";
+  if (!next.startsWith("/") || next.startsWith("//")) next = "/app";
+  await GDX.loadMe();
+  if (GDX.me) { location.href = next; return; }
+  GDX.renderNav();
+  var c = await GDX.loadCfg();
+  var line = document.getElementById("line"); line.href = c.line_url; line.textContent = c.line_oa;
+  function render() {
+    var reg = mode === "register";
+    document.getElementById("title").textContent = reg ? "สมัครสมาชิก" : "เข้าสู่ระบบ";
+    document.getElementById("submit").textContent = reg ? "สมัครสมาชิก" + (c.welcome_credits ? " รับ " + c.welcome_credits + " เครดิตฟรี" : "") : "เข้าสู่ระบบ";
+    document.getElementById("name-row").style.display = reg ? "block" : "none";
+    document.getElementById("switch").innerHTML = reg
+      ? 'มีบัญชีแล้ว? <a href="#" id="sw">เข้าสู่ระบบ</a>'
+      : 'ยังไม่มีบัญชี? <a href="#" id="sw">สมัครฟรี</a>';
+    document.getElementById("sw").onclick = function (e) { e.preventDefault(); mode = reg ? "login" : "register"; render(); };
+  }
+  render();
+  document.getElementById("f").onsubmit = async function (e) {
+    e.preventDefault();
+    var fd = new FormData(e.target);
+    var body = { email: fd.get("email"), password: fd.get("password"), name: fd.get("name") || "" };
+    var btn = document.getElementById("submit"); btn.disabled = true;
+    try {
+      await GDX.api("POST", mode === "register" ? "/api/register" : "/api/login", body);
+      location.href = next;
+    } catch (err) { GDX.toast(err.message, true); btn.disabled = false; }
+  };
+})();
+</script>
+</body>
+</html>

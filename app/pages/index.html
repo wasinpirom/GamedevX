@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GamedevX New Generation</title>
+<meta name="description" content="GamedevX ศูนย์รวมนักพัฒนาเกมไทย เว็บบอร์ดแลกเปลี่ยนความรู้การพัฒนาเกม แชร์ผลงาน และสร้างเกม Visual Novel ด้วย AI">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/classic.css">
+</head>
+<body>
+<div id="cx-head"></div>
+<div id="cx-frame">
+  <div id="cx-left"></div>
+
+  <div id="cx-center">
+    <div id="cx-banner"></div>
+    <div id="cx-announce"></div>
+
+    <a id="board"></a>
+    <div class="cx-tools">
+      <button class="cx-bb" id="b-all">Show All</button>
+      <button class="cx-bb" id="b-post">Post Topic</button>
+      <input id="q" type="text">
+      <select id="cat"><option value="">เว็บบอร์ด</option></select>
+      <button class="cx-btn" id="b-search">ค้นหา</button>
+    </div>
+
+    <!-- post form (classic inline) -->
+    <div class="cx-panel" id="post-panel" style="display:none">
+      <div class="cx-panel-h"><span>ตั้งกระทู้ใหม่</span><a href="#" id="post-x" style="color:#fff">[ปิด]</a></div>
+      <form class="cx-form" id="post-form" enctype="multipart/form-data">
+        <table>
+          <tr id="r-kind"><td class="l">ประเภท</td><td><select name="kind" id="p-kind"><option value="talk">กระทู้ทั่วไป</option><option value="game">แชร์เกมที่ฉันสร้าง (เพื่อน ๆ เล่นได้ในกระทู้)</option></select></td></tr>
+          <tr id="r-game" style="display:none"><td class="l">เลือกเกม</td><td><select name="project_id" id="p-game"></select></td></tr>
+          <tr><td class="l">หัวข้อ</td><td><input type="text" name="title" maxlength="150"></td></tr>
+          <tr><td class="l">หมวด</td><td><select name="category" id="p-cat"></select></td></tr>
+          <tr><td class="l">ข้อความ</td><td><textarea name="body"></textarea></td></tr>
+          <tr><td class="l">รูปภาพ</td><td><input type="file" name="file" accept="image/*"> <span style="color:#666;font-size:11px">(ไม่บังคับ ไม่เกิน 8MB)</span></td></tr>
+          <tr id="r-guest" style="display:none"><td class="l">ชื่อผู้โพสต์</td><td><input type="text" name="guest_name" maxlength="30"></td></tr>
+          <tr><td></td><td><div class="cx-hp"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+            <button class="cx-btn" id="post-send">ตั้งกระทู้</button></td></tr>
+        </table>
+      </form>
+    </div>
+
+    <table class="cx-board">
+      <thead><tr><th>ลำดับ</th><th>กระทู้</th><th>ตั้งโดย</th><th>วันที่ตั้งกระทู้</th><th>ตอบล่าสุด</th><th>อ่าน / ตอบ</th></tr></thead>
+      <tbody id="topics"><tr><td colspan="6" style="text-align:center;padding:14px">กำลังโหลด...</td></tr></tbody>
+    </table>
+    <div class="cx-pager" id="pager"></div>
+  </div>
+
+  <div id="cx-right"></div>
+</div>
+<div id="cx-foot"></div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/classic.js"></script>
+<script>
+(async function () {
+  var esc = GDX.esc, api = GDX.api;
+  var ctx = await CX.init();
+  var me = ctx.me, cfg = ctx.cfg, B = ctx.banners;
+  if (cfg.announcement) document.getElementById("cx-announce").innerHTML = '<div class="cx-note">' + esc(cfg.announcement) + "</div>";
+
+  // ---------- center banner (E-Learning style); rotates if several
+  var ban = document.getElementById("cx-banner");
+  var slides = (B.center || []).filter(function (b) { return b.image_url; });
+  if (slides.length) {
+    ban.innerHTML = slides.map(function (b, i) {
+      var img = '<img src="' + esc(b.image_url) + '" alt="' + esc(b.title) + '">';
+      return '<div class="slide' + (i ? "" : " on") + '">' + (b.go_url ? '<a href="' + esc(b.go_url) + '" target="_blank" rel="noopener">' + img + "</a>" : img) + "</div>";
+    }).join("");
+    if (slides.length > 1) {
+      var cur = 0, all = ban.querySelectorAll(".slide");
+      setInterval(function () { all[cur].classList.remove("on"); cur = (cur + 1) % all.length; all[cur].classList.add("on"); }, 6000);
+    }
+  } else {
+    ban.innerHTML = '<a href="' + (me ? "/app#new" : "/login?mode=register&next=/app%23new") + '" style="text-decoration:none">' +
+      '<div class="cx-promo"><div class="cx-promo-in"><span class="wm">GamedevX</span>' +
+      '<div class="cx-mascot"><i></i><i></i><b></b></div>' +
+      "<h2>คลิ๊กที่นี่.. เพื่อสร้างเกมด้วย AI<br>แบบออนไลน์</h2>" +
+      '<div class="el"><span class="gg"></span><span>AI STUDIO<small>สร้างเกม Visual Novel ด้วย AI แบบออนไลน์</small></span></div>' +
+      "</div></div></a>";
+  }
+
+  // ---------- board
+  var state = { page: 1, q: "", cat: "" };
+  var catSel = document.getElementById("cat");
+  var firstLoad = true;
+  async function load() {
+    var r = await api("GET", "/api/board?page=" + state.page + "&q=" + encodeURIComponent(state.q) + "&cat=" + encodeURIComponent(state.cat));
+    if (firstLoad) {
+      r.categories.forEach(function (c) { var o = document.createElement("option"); o.value = c; o.textContent = c; catSel.appendChild(o); });
+      document.getElementById("p-cat").innerHTML = r.categories.map(function (c) { return '<option>' + esc(c) + "</option>"; }).join("");
+      if (!me && r.allow_guest) document.getElementById("r-guest").style.display = "";
+      firstLoad = false;
+    }
+    var now = Date.now() / 1000;
+    document.getElementById("topics").innerHTML = r.topics.map(function (t) {
+      var isNew = now - Math.max(t.created_at, t.last_reply_at || 0) < 3 * 86400;
+      return '<tr class="' + (t.pinned ? "pin " : "") + (t.hidden ? "hid" : "") + '"><td class="n">' + t.id + "</td>" +
+        '<td class="t">' + (t.kind === "game" ? '<span class="ic-game">เกม</span>' : "") +
+        '<a href="/board/' + t.id + '">' + esc(t.title) + "</a>" +
+        (t.has_photo ? '<span class="ic-photo">PHOTO</span>' : "") + (isNew ? '<span class="ic-new">NEW!</span>' : "") +
+        (t.locked ? '<span class="ic-lock">[ล็อก]</span>' : "") +
+        (t.category ? ' <span class="cx-cat">· ' + esc(t.category) + "</span>" : "") + "</td>" +
+        '<td class="u' + (t.is_guest ? " g" : "") + '">' + esc(t.author) + "</td>" +
+        '<td class="d">' + CX.fmtDate(t.created_at) + "</td>" +
+        '<td class="u">' + (t.last_reply_name ? esc(t.last_reply_name) : "-") + "</td>" +
+        '<td class="c">[' + t.views + "/" + t.reply_count + "]</td></tr>";
+    }).join("") || '<tr><td colspan="6" style="text-align:center;padding:14px">ยังไม่มีกระทู้</td></tr>';
+    var pg = "";
+    if (r.pages > 1) {
+      pg = "หน้า ";
+      for (var i = 1; i <= r.pages; i++) pg += i === r.page ? "<b>[" + i + "]</b>" : '<a href="#board" data-p="' + i + '">' + i + "</a>";
+    }
+    var pager = document.getElementById("pager");
+    pager.innerHTML = pg;
+    pager.querySelectorAll("[data-p]").forEach(function (a) { a.onclick = function () { state.page = +a.getAttribute("data-p"); load(); }; });
+  }
+  document.getElementById("b-all").onclick = function () { state = { page: 1, q: "", cat: "" }; document.getElementById("q").value = ""; catSel.value = ""; load(); };
+  var search = function () { state.q = document.getElementById("q").value; state.cat = catSel.value; state.page = 1; load(); };
+  document.getElementById("b-search").onclick = search;
+  document.getElementById("q").onkeydown = function (e) { if (e.key === "Enter") search(); };
+  catSel.onchange = search;
+  load();
+
+  // ---------- post topic
+  var panel = document.getElementById("post-panel");
+  document.getElementById("b-post").onclick = async function () {
+    var r = await api("GET", "/api/board?page=1");
+    if (!me && !r.allow_guest) { GDX.toast("กรุณาเข้าสู่ระบบก่อนตั้งกระทู้ (กล่อง GamedevX Member ด้านซ้าย)", true); return; }
+    panel.style.display = "block";
+    if (me) {
+      var pr = await api("GET", "/api/projects");
+      var games = pr.projects.filter(function (p) { return p.has_story; });
+      document.getElementById("p-game").innerHTML = games.map(function (g) { return '<option value="' + g.id + '">' + esc(g.title) + "</option>"; }).join("") || '<option value="">ยังไม่มีเกม</option>';
+    } else {
+      document.getElementById("r-kind").style.display = "none";
+    }
+    panel.scrollIntoView({ behavior: "smooth" });
+  };
+  document.getElementById("post-x").onclick = function (e) { e.preventDefault(); panel.style.display = "none"; };
+  document.getElementById("p-kind").onchange = function () { document.getElementById("r-game").style.display = this.value === "game" ? "" : "none"; };
+  document.getElementById("post-form").onsubmit = async function (e) {
+    e.preventDefault();
+    var btn = document.getElementById("post-send"); btn.disabled = true;
+    try {
+      var r = await api("POST", "/api/board", new FormData(e.target), true);
+      location.href = "/board/" + r.id;
+    } catch (err) { GDX.toast(err.message, true); btn.disabled = false; }
+  };
+  if (location.hash === "#post") document.getElementById("b-post").click();
+})();
+</script>
+</body>
+</html>
